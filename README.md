@@ -38,11 +38,12 @@ Reported development baseline (one system; not independently reproduced in this 
 Diagnostics supplied by dadtrick confirm the v0.2.0 installation on Batocera
 43.1 / QEMU 9.1.0, a detected GameSir controller, and a 128 GiB virtual disk.
 dadtrick reports successful controller use and YouTube video playback with audio.
-A follow-up report confirmed working ADB access to Android 13, a roughly
-125 GiB guest `/data` filesystem, and an Intel HDA audio device. Its process
-status incorrectly said `STOPPED` because the shortcut and installation paths
-differed. The current source fixes that mismatch and includes regression tests;
-existing installations need the updated scripts.
+The October 10 recheck reports **VM Status: RUNNING**, working ADB access to
+**Android 13**, a roughly **125 GiB** guest `/data` filesystem, and an Intel HDA
+audio device. Diagnostics now reports the physical `/blissoscera` disk path,
+consistent with the fix for the earlier false `STOPPED` label. Four isolated
+regression tests and GitHub CI also pass. Existing installations using the old
+scripts need updating.
 
 See [the test report](docs/TESTING-v0.2.0.md) for evidence and limits.
 
