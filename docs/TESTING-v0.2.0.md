@@ -36,3 +36,23 @@ storage migration remains a reported development result.
 Raw diagnostics are not committed here; this summary omits device identifiers
 and unrelated host storage details. Collect another report while Android is
 running if ADB and guest details need validation.
+
+## Follow-up live guest diagnostics
+
+A second report collected October 9, 2026 at 9:59 PM MDT confirmed:
+
+- The local ADB endpoint was in `device` state, and guest shell commands succeeded.
+- Android reported version **13**.
+- The guest `/data` query returned approximately **125 GiB total**, **5.1 GiB used**, and **114 GiB available** (mounted at `/data/user/0`).
+- The guest exposed an **Intel HDA** audio device.
+
+These results supersede the earlier snapshot's offline ADB limitation and provide
+evidence of a responding Android guest. They support the reported playback test
+without proving all networking, audio, or controller scenarios.
+
+The report still printed `VM Status: STOPPED`, contradicting the successful ADB
+queries. The diagnostics process check compares command-line text with an exact
+disk path; use of the `/bliss` shortcut versus `/blissoscera` installation path
+is a possible explanation, not yet confirmed by process arguments. Do not treat
+that status label as reliable until investigated. The report confirms the guest's
+current filesystem capacity, not the earlier disk-growth procedure.

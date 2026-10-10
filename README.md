@@ -38,8 +38,10 @@ Reported development baseline (one system; not independently reproduced in this 
 Diagnostics supplied by dadtrick confirm the v0.2.0 installation on Batocera
 43.1 / QEMU 9.1.0, a detected GameSir controller, and a 128 GiB virtual disk.
 dadtrick reports successful controller use and YouTube video playback with audio.
-The diagnostic snapshot was collected with the VM stopped and ADB offline;
-it does not verify a live Android session or working ADB connection.
+A follow-up report confirmed working ADB access to Android 13, a roughly
+125 GiB guest `/data` filesystem, and an Intel HDA audio device. Its process
+status still said `STOPPED`, contradicting the live ADB results; that status
+check needs investigation.
 
 See [the test report](docs/TESTING-v0.2.0.md) for evidence and limits.
 
