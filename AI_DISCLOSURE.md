@@ -21,7 +21,7 @@ notices. Existing license terms are unchanged by these credits.
 
 ## Validation
 
-The repository documents development testing on one Batocera 43.1 x86_64 system with QEMU 9.1.0. Those are reported development results; this attribution review did not independently run the VM or verify the documented storage migration. The source package excludes the runtime and guest disk, and setup is not yet reproducible for a fresh installation. No automated CI workflow is present at the time of this review.
+The repository documents development testing on one Batocera 43.1 x86_64 system with QEMU 9.1.0. Diagnostics supplied by dadtrick confirm the host/runtime versions, controller device, and 128 GiB virtual disk. dadtrick also reports controller use and YouTube playback with audio. The snapshot captured a stopped VM and offline ADB; it does not independently verify a live guest or the documented storage migration. See [the test report](docs/TESTING-v0.2.0.md). The source package excludes the runtime and guest disk, and setup is not yet reproducible for a fresh installation. No automated CI workflow is present at the time of this review.
 
 ## Future changes
 
