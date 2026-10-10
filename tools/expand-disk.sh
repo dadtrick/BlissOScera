@@ -1,4 +1,6 @@
 #!/bin/bash
+# Developed with ChatGPT / Codex AI assistance, directed by dadtrick.
+# See AI_DISCLOSURE.md at the repository root for attribution and test limits.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

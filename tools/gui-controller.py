@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Developed with ChatGPT / Codex AI assistance, directed by dadtrick.
+# See AI_DISCLOSURE.md at the repository root for attribution and test limits.
 import ctypes
 import glob
 import os

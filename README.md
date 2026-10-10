@@ -7,11 +7,22 @@ QEMU/KVM. It turns a working BlissOS VM into a controller-friendly Batocera
 experience with launch, configuration, storage management, backup/restore,
 diagnostics, ADB access, audio, networking and controller passthrough.
 
+## AI development disclosure
+
+This project was developed with **ChatGPT / Codex, OpenAI's AI tools**, for
+software design, code generation, debugging, and documentation.
+**dadtrick** supplied the original need and idea, directed the project, invested
+the time, and performed hands-on testing. The code is presented openly as
+AI-developed work; the repository owner's name does not mean every line was
+written by hand.
+
+See [AI_DISCLOSURE.md](AI_DISCLOSURE.md) for attribution and validation limits.
+
 ## Current development release
 
 **Version:** 0.2.0
 
-Tested development baseline:
+Reported development baseline (one system; not independently reproduced in this review):
 
 - Batocera 43.1 x86_64
 - QEMU 9.1.0 portable runtime
@@ -52,7 +63,7 @@ Graceful shutdown:
 - controller navigation inside the Configuration Manager
 - configurable RAM, CPU, fullscreen, ADB and controller settings
 - QMP graceful shutdown
-- safe qcow2 expansion with ext4 `/data` growth
+- qcow2 expansion with backups with ext4 `/data` growth
 - timestamped disk backup and restore
 - diagnostics report
 - EmulationStation Ports launchers
@@ -90,7 +101,7 @@ BlissOScera/
 
 ## Branding
 
-The approved BlissOScera visual suite is included in the v0.2.0 distribution package. Binary artwork can also be added to the repository under `assets/`.
+The BlissOScera artwork is included under `assets/`.
 
 **Tagline:** `PLAY MORE. MANAGE LESS.`
 
@@ -103,5 +114,6 @@ reproducible before a general-public release.
 
 ## License
 
-A public open-source license has not yet been selected. See
-`docs/LICENSE-TODO.md` before publishing the repository.
+This repository is public, but an open-source license has not yet been selected.
+Public visibility alone does not grant open-source reuse rights. See
+[docs/LICENSE-TODO.md](docs/LICENSE-TODO.md).
