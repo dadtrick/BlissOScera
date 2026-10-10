@@ -3,7 +3,7 @@
 # See AI_DISCLOSURE.md at the repository root for attribution and test limits.
 set -u
 
-ROOT="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$(dirname "$0")" && pwd -P)"
 CONFIG="$ROOT/config/settings.conf"
 QEMU="$ROOT/bin/qemu-system-x86_64"
 DISK="$ROOT/disks/bliss-system.qcow2"
@@ -44,11 +44,12 @@ case "$RAM_MB" in ''|*[!0-9]*) RAM_MB=4096 ;; esac
 [ "$RAM_MB" -lt 2048 ] && RAM_MB=2048
 
 mkdir -p "$ROOT/run" "$ROOT/logs"
-rm -f "$QMP"
 
 if pgrep -af qemu-system-x86_64 2>/dev/null | grep -F "$DISK" >/dev/null; then
 fail "BlissOScera is already running."
 fi
+
+rm -f "$QMP"
 
 # If controller passthrough is enabled but no explicit path is configured,
 # try the first persistent joystick event device.
@@ -115,3 +116,4 @@ echo "Starting BlissOScera..." >> "$LOG"
 echo "RAM=${RAM_MB}MB CPU=${CPU_CORES}" >> "$LOG"
 
 exec "$QEMU" "${ARGS[@]}" >> "$LOG" 2>&1
+

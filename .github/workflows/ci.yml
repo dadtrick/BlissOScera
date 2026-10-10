@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Path alias regression tests
+        run: python -m unittest discover -s tests -v
+      - name: Python compile
+        run: python -m py_compile tools/*.py tests/*.py
+      - name: Shell syntax
+        run: |
+          for f in start stop gui *.sh ports/*.sh tools/*.sh; do
+            bash -n "$f" || exit
+          done

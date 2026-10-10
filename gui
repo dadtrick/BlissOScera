@@ -2,7 +2,7 @@
 # Developed with ChatGPT / Codex AI assistance, directed by dadtrick.
 # See AI_DISCLOSURE.md at the repository root for attribution and test limits.
 
-ROOT="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$(dirname "$0")" && pwd -P)"
 CONFIG="$ROOT/config/settings.conf"
 LAUNCHER="$ROOT/start"
 POWEROFF="$ROOT/stop"
@@ -453,3 +453,4 @@ while true; do
         8) exit 0 ;;
     esac
 done
+

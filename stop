@@ -3,7 +3,7 @@
 # See AI_DISCLOSURE.md at the repository root for attribution and test limits.
 set -u
 
-ROOT="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$(dirname "$0")" && pwd -P)"
 QMP="$ROOT/run/bliss-qmp.sock"
 
 [ -S "$QMP" ] || {
@@ -36,3 +36,4 @@ s.sendall(b'{"execute":"system_powerdown"}\r\n')
 s.close()
 print("Shutdown request sent to BlissOScera.")
 PY
+

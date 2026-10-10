@@ -56,3 +56,9 @@ disk path; use of the `/bliss` shortcut versus `/blissoscera` installation path
 is a possible explanation, not yet confirmed by process arguments. Do not treat
 that status label as reliable until investigated. The report confirms the guest's
 current filesystem capacity, not the earlier disk-growth procedure.
+
+## Confirmed path mismatch and regression fix
+
+The supplied QEMU process arguments used `/userdata/system/blissoscera/disks/bliss-system.qcow2`, while diagnostics invoked through the `/bliss` shortcut compared `/userdata/system/bliss/disks/bliss-system.qcow2`. This confirms why that report incorrectly labeled the running VM as stopped. The process arguments also show KVM, virtio-vga-gl, PipeWire audio, and VirtIO controller passthrough configured; this confirms launch options, not their performance.
+
+Source scripts now resolve their installation root with `pwd -P` so both entry paths use the same physical disk path. The launcher checks for an existing VM before removing the QMP endpoint. Four isolated regression tests reproduced the old failures and pass with the fix: running/stopped diagnostics through both paths, duplicate-launch refusal with endpoint preservation, and live-disk restore/expansion refusal through the shortcut. A GitHub CI workflow runs these tests and syntax checks. This fix still needs installation and a fresh diagnostic check on dadtrick's Batocera system; earlier runtime files and ZIPs are unchanged.

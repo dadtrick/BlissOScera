@@ -1,7 +1,7 @@
 #!/bin/bash
 # Developed with ChatGPT / Codex AI assistance, directed by dadtrick.
 # See AI_DISCLOSURE.md at the repository root for attribution and test limits.
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
 DISK="$ROOT/disks/bliss-system.qcow2"
 CONFIG="$ROOT/config/settings.conf"
 QEMU="$ROOT/bin/qemu-system-x86_64"
@@ -91,3 +91,4 @@ echo "============================================================"
 } > "$REPORT" 2>&1
 
 echo "$REPORT"
+

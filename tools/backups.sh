@@ -3,7 +3,7 @@
 # See AI_DISCLOSURE.md at the repository root for attribution and test limits.
 set -u
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
 DISKDIR="$ROOT/disks"
 DISK="$DISKDIR/bliss-system.qcow2"
 QEMU_IMG="$ROOT/bin/qemu-img"
@@ -121,3 +121,4 @@ delete)
     exit 1
     ;;
 esac
+
