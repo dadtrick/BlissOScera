@@ -5,60 +5,79 @@ set -u
 
 ROOT="$(cd "$(dirname "$0")" && pwd -P)"
 QMP="$ROOT/run/bliss-qmp.sock"
+DISK="$ROOT/disks/bliss-system.qcow2"
+ADB="$ROOT/tools/platform-tools/adb"
+CONFIG="$ROOT/config/settings.conf"
+ADB_PORT=4444
+ENABLE_ADB=1
+[ -f "$CONFIG" ] && . "$CONFIG"
 
-[ -S "$QMP" ] || {
-    echo "BlissOScera does not appear to be running."
-    exit 1
+is_running() {
+    pgrep -af '[q]emu-system-x86_64' 2>/dev/null | grep -F "$DISK" >/dev/null
 }
 
-python3 - "$QMP" <<'PY'
-import json
-import socket
-import sys
+power_menu() {
+    [ -S "$QMP" ] || { echo "QMP socket unavailable." >&2; return 1; }
+    python3 - "$QMP" <<'PY'
+import json, socket, sys
 
-
-def receive_message(stream):
+def receive(stream):
     line = stream.readline()
     if not line:
-        raise RuntimeError("QMP connection closed before acknowledging shutdown.")
-    message = json.loads(line)
-    if not isinstance(message, dict):
-        raise RuntimeError("Invalid QMP response.")
-    return message
-
-
-def execute_command(connection, stream, command):
-    request = {"execute": command, "id": command}
-    connection.sendall(json.dumps(request).encode("utf-8") + b"\r\n")
-    while True:
-        response = receive_message(stream)
-        # QMP can interleave asynchronous events with command responses.
-        if response.get("id") != command:
-            continue
-        if "error" in response:
-            error = response["error"]
-            description = error.get("desc", str(error)) if isinstance(error, dict) else str(error)
-            raise RuntimeError(f"{command}: {description}")
-        if "return" not in response:
-            raise RuntimeError(f"Invalid response to {command}.")
-        return
-
+        raise RuntimeError("QMP connection closed")
+    return json.loads(line)
 
 try:
-    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
-        connection.settimeout(3)
-        connection.connect(sys.argv[1])
-        # A buffered reader preserves additional messages received together.
-        with connection.makefile("r", encoding="utf-8") as stream:
-            if "QMP" not in receive_message(stream):
-                raise RuntimeError("QMP greeting is missing.")
-            execute_command(connection, stream, "qmp_capabilities")
-            execute_command(connection, stream, "system_powerdown")
-except (OSError, RuntimeError, ValueError) as error:
-    print(f"BlissOScera shutdown failed: {error}", file=sys.stderr)
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+        sock.settimeout(3)
+        sock.connect(sys.argv[1])
+        with sock.makefile("r", encoding="utf-8") as stream:
+            if "QMP" not in receive(stream):
+                raise RuntimeError("Missing QMP greeting")
+            for command in ("qmp_capabilities", "system_powerdown"):
+                sock.sendall((json.dumps({"execute": command, "id": command}) + "\r\n").encode())
+                while True:
+                    result = receive(stream)
+                    if result.get("id") == command:
+                        if "error" in result:
+                            raise RuntimeError(str(result["error"]))
+                        if "return" not in result:
+                            raise RuntimeError("Invalid QMP response")
+                        break
+except (OSError, ValueError, RuntimeError) as error:
+    print(f"Power-menu request failed: {error}", file=sys.stderr)
     sys.exit(1)
-
-print("Shutdown request sent to BlissOScera.")
 PY
+}
 
+case "${1:-}" in
+    --power-menu)
+        is_running || { echo "BlissOScera is not running." >&2; exit 1; }
+        power_menu || exit 1
+        echo "Android power menu requested; select Power off in Android."
+        exit 0
+        ;;
+    ""|--shutdown) ;;
+    *) echo "Usage: $0 [--shutdown|--power-menu]" >&2; exit 2 ;;
+esac
 
+is_running || { echo "BlissOScera is not running." >&2; exit 1; }
+[ "$ENABLE_ADB" = 1 ] || { echo "ADB is disabled; use --power-menu for interactive shutdown." >&2; exit 1; }
+[ -x "$ADB" ] || { echo "ADB unavailable; use --power-menu for interactive shutdown." >&2; exit 1; }
+
+# The device may be offline after a previous power-menu request.
+"$ADB" connect "127.0.0.1:$ADB_PORT" >/dev/null 2>&1 || true
+STATE="$("$ADB" -s "127.0.0.1:$ADB_PORT" get-state 2>/dev/null || true)"
+[ "$STATE" = device ] || { echo "Android ADB is not ready ($STATE); use --power-menu." >&2; exit 1; }
+
+# ADB may disconnect before acknowledging the shutdown; process exit is authoritative.
+"$ADB" -s "127.0.0.1:$ADB_PORT" shell reboot -p >/dev/null 2>&1 || true
+for ((i=0; i<60; i++)); do
+    if ! is_running; then
+        echo "BlissOScera shut down successfully."
+        exit 0
+    fi
+    sleep 2
+done
+echo "Shutdown not confirmed after 120 seconds. VM is still running; use --power-menu or investigate." >&2
+exit 1
