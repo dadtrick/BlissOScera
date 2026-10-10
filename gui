@@ -411,12 +411,23 @@ shutdown_bliss() {
         return
     fi
     local output
-    if output="$("$POWEROFF" 2>&1)"; then
-        yad --title="BlissOScera" --info --timeout=2 --no-buttons \
-            --text="Shutdown request sent."
+    if output="$("$POWEROFF" --shutdown 2>&1)"; then
+        yad --title="BlissOScera" --info --text="$output"
     else
-        yad --title="BlissOScera" --error --width=560 \
-            --text="$output"
+        yad --title="BlissOScera" --error --width=560 --text="$output"
+    fi
+}
+
+power_menu_bliss() {
+    if ! is_running; then
+        yad --title="BlissOScera" --info --text="BlissOScera is not currently running."
+        return
+    fi
+    local output
+    if output="$("$POWEROFF" --power-menu 2>&1)"; then
+        yad --title="BlissOScera" --info --width=540 --text="$output"
+    else
+        yad --title="BlissOScera" --error --width=560 --text="$output"
     fi
 }
 
@@ -436,7 +447,8 @@ while true; do
             --column="ID:HD" --column="Action" --column="Description" \
             "1" "VM Settings" "RAM, CPU, fullscreen, audio, ADB and controller" \
             "2" "Launch BlissOScera" "Start the Android virtual machine" \
-            "3" "Shut Down BlissOScera" "Send a graceful ACPI shutdown request" \
+            "3" "Shut Down Android" "Request Android power-off through ADB and verify VM exit" \\
+            "9" "Open Android Power Menu" "Interactive ACPI power menu; choose Power off in Android" \
             "4" "Storage Management" "Disk expansion, information and backups" \
             "5" "Diagnostics" "Generate a system and VM diagnostic report" \
             "6" "View QEMU Log" "View recent QEMU launcher output" \
@@ -451,6 +463,7 @@ while true; do
         1) settings_dialog ;;
         2) launch_bliss ;;
         3) shutdown_bliss ;;
+        9) power_menu_bliss ;;
         4) storage_menu ;;
         5) diagnostics_dialog ;;
         6) view_log ;;
