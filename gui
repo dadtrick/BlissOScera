@@ -447,7 +447,7 @@ while true; do
             --column="ID:HD" --column="Action" --column="Description" \
             "1" "VM Settings" "RAM, CPU, fullscreen, audio, ADB and controller" \
             "2" "Launch BlissOScera" "Start the Android virtual machine" \
-            "3" "Shut Down Android" "Request Android power-off through ADB and verify VM exit" \\
+            "3" "Shut Down Android" "Request Android power-off through ADB and verify VM exit" \
             "9" "Open Android Power Menu" "Interactive ACPI power menu; choose Power off in Android" \
             "4" "Storage Management" "Disk expansion, information and backups" \
             "5" "Diagnostics" "Generate a system and VM diagnostic report" \
