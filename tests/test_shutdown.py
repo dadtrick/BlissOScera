@@ -89,6 +89,13 @@ class ShutdownTests(unittest.TestCase):
         (self.root / "stop").chmod(0o755)
         self.endpoint = self.root / "run/bliss-qmp.sock"
         self.endpoint.touch()
+        (self.root / "disks").mkdir()
+        (self.root / "disks/bliss-system.qcow2").touch()
+        self.fakebin = self.base / "fakebin"
+        self.fakebin.mkdir()
+        pgrep = self.fakebin / "pgrep"
+        pgrep.write_text('#!/bin/sh\necho "123 qemu-system-x86_64 -drive file=' + str(self.root / "disks/bliss-system.qcow2") + '"\n')
+        pgrep.chmod(0o755)
         self.commands = self.base / "commands.jsonl"
         self.modules = self.base / "modules"
         self.modules.mkdir()
@@ -103,12 +110,12 @@ class ShutdownTests(unittest.TestCase):
     fi
 }
 ''')
-        self.env = dict(os.environ, BASH_ENV=str(bash_env),
+        self.env = dict(os.environ, PATH=str(self.fakebin) + os.pathsep + os.environ["PATH"], BASH_ENV=str(bash_env),
                         PYTHONPATH=str(self.modules), TEST_QMP_COMMANDS=str(self.commands))
 
     def run_stop(self, scenario=None, root=None):
         self.env["TEST_QMP_SCENARIO"] = json.dumps(scenario or {})
-        return subprocess.run(["bash", str((root or self.root) / "stop")],
+        return subprocess.run(["bash", str((root or self.root) / "stop"), "--power-menu"],
                               env=self.env, capture_output=True, text=True, timeout=5)
 
     def sent_commands(self):
@@ -128,7 +135,7 @@ class ShutdownTests(unittest.TestCase):
         }
         result = self.run_stop(scenario, self.alias)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("Shutdown request sent", result.stdout)
+        self.assertIn("Android power menu requested", result.stdout)
         self.assertEqual(self.sent_commands(), ["qmp_capabilities", "system_powerdown"])
 
     def test_capabilities_error_prevents_powerdown(self):
@@ -137,7 +144,7 @@ class ShutdownTests(unittest.TestCase):
         ]}})
         self.assertEqual(result.returncode, 1)
         self.assertIn("Capabilities denied", result.stderr)
-        self.assertNotIn("Shutdown request sent", result.stdout)
+        self.assertNotIn("Android power menu requested", result.stdout)
         self.assertEqual(self.sent_commands(), ["qmp_capabilities"])
 
     def test_powerdown_error_is_reported_as_failure(self):
@@ -146,15 +153,15 @@ class ShutdownTests(unittest.TestCase):
         ]}})
         self.assertEqual(result.returncode, 1)
         self.assertIn("Powerdown rejected", result.stderr)
-        self.assertNotIn("Shutdown request sent", result.stdout)
+        self.assertNotIn("Android power menu requested", result.stdout)
 
     def test_unacknowledged_powerdown_fails_on_timeout_or_closed_connection(self):
         for eof in (False, True):
             with self.subTest(eof=eof):
                 result = self.run_stop({"responses": {"system_powerdown": []}, "eof": eof})
                 self.assertEqual(result.returncode, 1)
-                self.assertIn("shutdown failed", result.stderr)
-                self.assertNotIn("Shutdown request sent", result.stdout)
+                self.assertIn("Power-menu request failed", result.stderr)
+                self.assertNotIn("Android power menu requested", result.stdout)
 
     def test_connection_failure_is_reported(self):
         result = self.run_stop({"connect_error": True})
@@ -165,19 +172,19 @@ class ShutdownTests(unittest.TestCase):
     def test_invalid_greeting_sends_no_commands(self):
         result = self.run_stop({"greeting": [{"event": "POWERDOWN"}]})
         self.assertEqual(result.returncode, 1)
-        self.assertIn("greeting is missing", result.stderr)
+        self.assertIn("Missing QMP greeting", result.stderr)
         self.assertEqual(self.sent_commands(), [])
 
     def test_missing_socket_is_reported_without_connecting(self):
         self.endpoint.unlink()
         result = self.run_stop()
         self.assertEqual(result.returncode, 1)
-        self.assertIn("does not appear to be running", result.stdout)
+        self.assertIn("QMP socket unavailable", result.stderr)
         self.assertEqual(self.sent_commands(), [])
 
     def test_gui_reports_failed_shutdown_without_success_dialog(self):
         for directory in ("logs", "config", "bin", "tools", "disks"):
-            (self.root / directory).mkdir()
+            (self.root / directory).mkdir(exist_ok=True)
         shutil.copyfile(SOURCE / "gui", self.root / "gui")
         commands = self.base / "mock-bin"
         commands.mkdir()
@@ -214,8 +221,8 @@ if "--title=BlissOScera Configuration Manager" in sys.argv:
         invocations = [json.loads(line) for line in dialogs.read_text().splitlines()]
         errors = [args for args in invocations if "--error" in args]
         self.assertEqual(len(errors), 1)
-        self.assertTrue(any("Powerdown rejected" in arg for arg in errors[0]))
-        self.assertNotIn("--text=Shutdown request sent.", dialogs.read_text())
+        self.assertTrue(any("ADB unavailable" in arg for arg in errors[0]))
+        self.assertNotIn("shut down successfully", dialogs.read_text())
 
 
 if __name__ == "__main__":
