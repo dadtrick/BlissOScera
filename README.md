@@ -33,6 +33,16 @@ Reported development baseline (one system; not independently reproduced in this 
 - VirtWifi networking
 - VirtIO input-host controller passthrough
 
+### Hands-on test evidence
+
+Diagnostics supplied by dadtrick confirm the v0.2.0 installation on Batocera
+43.1 / QEMU 9.1.0, a detected GameSir controller, and a 128 GiB virtual disk.
+dadtrick reports successful controller use and YouTube video playback with audio.
+The diagnostic snapshot was collected with the VM stopped and ADB offline;
+it does not verify a live Android session or working ADB connection.
+
+See [the test report](docs/TESTING-v0.2.0.md) for evidence and limits.
+
 ## Quick launch
 
 Once installed:
@@ -63,7 +73,7 @@ Graceful shutdown:
 - controller navigation inside the Configuration Manager
 - configurable RAM, CPU, fullscreen, ADB and controller settings
 - QMP graceful shutdown
-- qcow2 expansion with backups with ext4 `/data` growth
+- qcow2 expansion with backups and ext4 `/data` growth
 - timestamped disk backup and restore
 - diagnostics report
 - EmulationStation Ports launchers
