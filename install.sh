@@ -3,7 +3,7 @@
 # See AI_DISCLOSURE.md at the repository root for attribution and test limits.
 set -u
 
-SRC="$(cd "$(dirname "$0")" && pwd)"
+SRC="$(cd "$(dirname "$0")" && pwd -P)"
 DEST="/userdata/system/blissoscera"
 SHORT="/userdata/system/bliss"
 PORTS="/userdata/roms/ports"
@@ -81,3 +81,4 @@ else
 echo "The public source package intentionally does not bundle the QEMU/BlissOS runtime."
 echo "See docs/INSTALL.md."
 fi
+

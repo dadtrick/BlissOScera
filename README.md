@@ -40,8 +40,9 @@ Diagnostics supplied by dadtrick confirm the v0.2.0 installation on Batocera
 dadtrick reports successful controller use and YouTube video playback with audio.
 A follow-up report confirmed working ADB access to Android 13, a roughly
 125 GiB guest `/data` filesystem, and an Intel HDA audio device. Its process
-status still said `STOPPED`, contradicting the live ADB results; that status
-check needs investigation.
+status incorrectly said `STOPPED` because the shortcut and installation paths
+differed. The current source fixes that mismatch and includes regression tests;
+existing installations need the updated scripts.
 
 See [the test report](docs/TESTING-v0.2.0.md) for evidence and limits.
 

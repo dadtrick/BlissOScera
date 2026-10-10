@@ -3,7 +3,7 @@
 # See AI_DISCLOSURE.md at the repository root for attribution and test limits.
 set -u
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
 VERSION="$(cat "$ROOT/VERSION" 2>/dev/null || echo dev)"
 OUTROOT="$ROOT/releases"
 OUT="$OUTROOT/BlissOScera-v${VERSION}-source"
@@ -45,3 +45,4 @@ exit 1
 }
 
 echo "$OUT"
+

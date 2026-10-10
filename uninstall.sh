@@ -46,3 +46,4 @@ echo "  $DEST/share"
 echo "  $DEST/firmware"
 echo "  $DEST/tools/platform-tools"
 echo "  $DEST/logs"
+

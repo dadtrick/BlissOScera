@@ -3,7 +3,7 @@
 # See AI_DISCLOSURE.md at the repository root for attribution and test limits.
 set -uo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
 DISK="$ROOT/disks/bliss-system.qcow2"
 QEMU_IMG="$ROOT/bin/qemu-img"
 LOOP_TOOL="$ROOT/tools/loop.py"
@@ -181,3 +181,4 @@ rm -f "$RAW"
 echo
 echo "SUCCESS: BlissOScera disk expanded to ${TARGET_GIB} GiB."
 echo "Previous disk: $BACKUP"
+
