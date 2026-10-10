@@ -1,0 +1,15 @@
+# BlissOScera configuration
+
+RAM_MB=4096
+CPU_CORES=4
+
+ENABLE_ADB=1
+ADB_PORT=4444
+
+ENABLE_AUDIO=1
+
+ENABLE_CONTROLLER=1
+# Leave blank to let BlissOScera try the first *-event-joystick device.
+CONTROLLER_EVDEV=""
+
+FULLSCREEN=0

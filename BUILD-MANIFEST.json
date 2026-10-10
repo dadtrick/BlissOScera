@@ -1,0 +1,16 @@
+{
+  "name": "BlissOScera",
+  "version": "0.2.0",
+  "tagline": "BlissOS for Batocera",
+  "source_only": true,
+  "runtime_included": false,
+  "tested_baseline": {
+    "batocera": "43.1 x86_64",
+    "qemu": "9.1.0"
+  },
+  "short_commands": {
+    "start": "/userdata/system/bliss/start",
+    "gui": "/userdata/system/bliss/gui",
+    "stop": "/userdata/system/bliss/stop"
+  }
+}

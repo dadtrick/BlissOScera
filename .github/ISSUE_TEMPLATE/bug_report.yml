@@ -1,0 +1,31 @@
+name: Bug report
+description: Report a reproducible BlissOScera problem
+title: "[Bug] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: BlissOScera diagnostics
+      description: Paste the relevant diagnostics output. Remove anything you do not want to share.
+    validations:
+      required: false
+  - type: input
+    id: batocera
+    attributes:
+      label: Batocera version
+  - type: input
+    id: hardware
+    attributes:
+      label: Hardware

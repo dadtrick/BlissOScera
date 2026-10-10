@@ -1,0 +1,36 @@
+#!/bin/bash
+set -u
+
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+QMP="$ROOT/run/bliss-qmp.sock"
+
+[ -S "$QMP" ] || {
+echo "BlissOScera does not appear to be running."
+exit 1
+}
+
+python3 - "$QMP" <<'PY'
+import json, socket, sys, time
+
+path = sys.argv[1]
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+s.settimeout(3)
+s.connect(path)
+
+def recv_line():
+data = b""
+while not data.endswith(b"\n"):
+    chunk = s.recv(4096)
+    if not chunk:
+        break
+    data += chunk
+return data
+
+recv_line()
+s.sendall(b'{"execute":"qmp_capabilities"}\r\n')
+time.sleep(0.1)
+recv_line()
+s.sendall(b'{"execute":"system_powerdown"}\r\n')
+s.close()
+print("Shutdown request sent to BlissOScera.")
+PY

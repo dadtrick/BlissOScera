@@ -1,0 +1,32 @@
+# BlissOScera runtime payload
+bin/
+lib/
+share/
+firmware/
+disks/
+tools/platform-tools/
+
+# Local configuration
+config/settings.conf
+
+# Runtime state
+logs/
+run/
+tmp/
+releases/
+
+# VM/media files
+*.qcow2
+*.raw
+*.iso
+
+# Backups
+*.backup-*
+*.pre-restore-*
+
+# Archives / editor noise
+*.zip
+*.tar.gz
+.DS_Store
+__pycache__/
+*.pyc

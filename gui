@@ -1,0 +1,453 @@
+#!/bin/bash
+
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+CONFIG="$ROOT/config/settings.conf"
+LAUNCHER="$ROOT/start"
+POWEROFF="$ROOT/stop"
+DISK="$ROOT/disks/bliss-system.qcow2"
+LOG="$ROOT/logs/bliss-qemu.log"
+LOGDIR="$ROOT/logs"
+QEMU_IMG="$ROOT/bin/qemu-img"
+EXPANDER="$ROOT/tools/expand-disk.sh"
+BACKUP_TOOL="$ROOT/tools/backups.sh"
+DIAG_TOOL="$ROOT/tools/diagnostics.sh"
+VERSION_FILE="$ROOT/VERSION"
+ICON="$ROOT/assets/app-icon.png"
+
+export DISPLAY="${DISPLAY:-:0.0}"
+export LD_LIBRARY_PATH="$ROOT/lib"
+
+command -v yad >/dev/null 2>&1 || {
+    echo "BlissOScera Configuration Manager requires yad."
+    exit 1
+}
+
+RAM_MB=4096
+CPU_CORES=4
+ENABLE_ADB=1
+ADB_PORT=4444
+ENABLE_AUDIO=1
+ENABLE_CONTROLLER=1
+CONTROLLER_EVDEV=""
+FULLSCREEN=0
+
+load_config() {
+    [ -f "$CONFIG" ] && . "$CONFIG"
+}
+
+load_config
+
+HOST_CORES="$(nproc 2>/dev/null || echo 4)"
+HOST_RAM_MB="$(awk '/MemTotal:/ {print int($2/1024)}' /proc/meminfo)"
+MAX_RAM_MB=$((HOST_RAM_MB - 2048))
+[ "$MAX_RAM_MB" -lt 2048 ] && MAX_RAM_MB=2048
+
+is_running() {
+    pgrep -af qemu-system-x86_64 2>/dev/null |
+        grep -F "$DISK" >/dev/null 2>&1
+}
+
+check_value() {
+    [ "$1" = "1" ] && echo TRUE || echo FALSE
+}
+
+bool_value() {
+    case "$1" in TRUE|True|true|1) echo 1 ;; *) echo 0 ;; esac
+}
+
+disk_virtual_bytes() {
+    local out
+    out="$("$QEMU_IMG" info -U --output=json "$DISK" 2>/dev/null)" || return 1
+    [ -n "$out" ] || return 1
+    printf '%s' "$out" |
+        python3 -c 'import json,sys; print(int(json.load(sys.stdin)["virtual-size"]))' \
+        2>/dev/null
+}
+
+disk_virtual_gib() {
+    local bytes
+    bytes="$(disk_virtual_bytes)" || { echo "Unknown"; return; }
+    case "$bytes" in ''|*[!0-9]*) echo "Unknown"; return ;; esac
+    echo $((bytes / 1024 / 1024 / 1024))
+}
+
+GUI_CONTROLLER_PID=""
+
+start_gui_controller() {
+    local helper="$ROOT/tools/gui-controller.sh"
+    [ -x "$helper" ] || return 0
+    mkdir -p "$LOGDIR"
+
+    pkill -f "$ROOT/tools/gui-controller.py.*$ROOT" 2>/dev/null || true
+
+    "$helper" "$ROOT" >> "$LOGDIR/gui-controller.log" 2>&1 &
+    GUI_CONTROLLER_PID=$!
+    sleep 0.75
+
+    if ! kill -0 "$GUI_CONTROLLER_PID" 2>/dev/null; then
+        GUI_CONTROLLER_PID=""
+    fi
+}
+
+stop_gui_controller() {
+    if [ -n "$GUI_CONTROLLER_PID" ] &&
+       kill -0 "$GUI_CONTROLLER_PID" 2>/dev/null; then
+        kill "$GUI_CONTROLLER_PID" 2>/dev/null || true
+        wait "$GUI_CONTROLLER_PID" 2>/dev/null || true
+    fi
+    GUI_CONTROLLER_PID=""
+}
+
+trap stop_gui_controller EXIT INT TERM
+
+settings_dialog() {
+    load_config
+
+    RESULT="$(
+        yad \
+            --title="BlissOScera - VM Settings" \
+            --center \
+            --width=620 \
+            --form \
+            --separator="|" \
+            --field="RAM (MB):NUM" "${RAM_MB}!2048..${MAX_RAM_MB}!512!0" \
+            --field="CPU Cores:NUM" "${CPU_CORES}!1..${HOST_CORES}!1!0" \
+            --field="Fullscreen:CHK" "$(check_value "$FULLSCREEN")" \
+            --field="ADB:CHK" "$(check_value "$ENABLE_ADB")" \
+            --field="Audio:CHK" "$(check_value "$ENABLE_AUDIO")" \
+            --field="Controller Passthrough:CHK" "$(check_value "$ENABLE_CONTROLLER")" \
+            --field="Controller event device" "$CONTROLLER_EVDEV" \
+            --button="Cancel:1" \
+            --button="Save:0"
+    )"
+
+    [ "$?" -eq 0 ] || return
+
+    IFS='|' read -r NEW_RAM NEW_CPU NEW_FULLSCREEN NEW_ADB NEW_AUDIO \
+        NEW_CONTROLLER NEW_CONTROLLER_EVDEV <<< "$RESULT"
+
+    NEW_RAM="${NEW_RAM%%.*}"
+    NEW_CPU="${NEW_CPU%%.*}"
+    [ -z "$NEW_RAM" ] && NEW_RAM=4096
+    [ -z "$NEW_CPU" ] && NEW_CPU=4
+    [ "$NEW_RAM" -lt 2048 ] && NEW_RAM=2048
+    [ "$NEW_RAM" -gt "$MAX_RAM_MB" ] && NEW_RAM="$MAX_RAM_MB"
+    [ "$NEW_CPU" -lt 1 ] && NEW_CPU=1
+    [ "$NEW_CPU" -gt "$HOST_CORES" ] && NEW_CPU="$HOST_CORES"
+
+    cat > "$CONFIG" <<CFG
+# BlissOScera configuration
+RAM_MB=$NEW_RAM
+CPU_CORES=$NEW_CPU
+ENABLE_ADB=$(bool_value "$NEW_ADB")
+ADB_PORT=$ADB_PORT
+ENABLE_AUDIO=$(bool_value "$NEW_AUDIO")
+ENABLE_CONTROLLER=$(bool_value "$NEW_CONTROLLER")
+CONTROLLER_EVDEV="$NEW_CONTROLLER_EVDEV"
+FULLSCREEN=$(bool_value "$NEW_FULLSCREEN")
+CFG
+
+    yad --title="BlissOScera" --info --width=440 \
+        --text="Settings saved.\n\nRAM: ${NEW_RAM} MB\nCPU Cores: ${NEW_CPU}\n\nChanges apply the next time BlissOScera starts."
+}
+
+disk_info() {
+    CURRENT="$(disk_virtual_gib)"
+    ALLOC="$(du -h "$DISK" 2>/dev/null | awk '{print $1}')"
+    HOST_FREE="$(df -h /userdata | awk 'NR==2 {print $4}')"
+    INFO="$("$QEMU_IMG" info -U "$DISK" 2>&1)"
+
+    {
+        echo "BlissOScera Storage"
+        echo
+        echo "Virtual capacity: ${CURRENT} GiB"
+        echo "Actual host usage: ${ALLOC:-Unknown}"
+        echo "Host free space: ${HOST_FREE}"
+        echo
+        echo "$INFO"
+    } | yad --title="BlissOScera - Disk Information" \
+        --width=760 --height=480 --text-info --button="Close:0"
+}
+
+backup_menu() {
+    while true; do
+        mapfile -t BACKUPS < <("$BACKUP_TOOL" list 2>/dev/null)
+
+        if [ "${#BACKUPS[@]}" -eq 0 ]; then
+            yad --title="BlissOScera - Disk Backups" \
+                --info --text="No disk backups were found."
+            return
+        fi
+
+        ROWS=()
+        for LINE in "${BACKUPS[@]}"; do
+            IFS='|' read -r FILE HOSTSIZE VIRTUAL <<< "$LINE"
+            ROWS+=("$FILE" "$(basename "$FILE")" "$VIRTUAL" "$HOSTSIZE")
+        done
+
+        RESULT="$(
+            yad \
+                --title="BlissOScera - Disk Backup Management" \
+                --center --width=900 --height=440 \
+                --text="Select a preserved BlissOS disk image.\n\nRestore always preserves the current active disk first." \
+                --list --separator="|" --print-column=1 \
+                --column="Path:HD" \
+                --column="Backup" \
+                --column="Virtual Size" \
+                --column="Host Usage" \
+                "${ROWS[@]}" \
+                --button="Restore:2" \
+                --button="Delete:3" \
+                --button="Close:1"
+        )"
+
+        STATUS=$?
+        SELECTED="${RESULT%%|*}"
+
+        case "$STATUS" in
+            1) return ;;
+            2)
+                [ -n "$SELECTED" ] || continue
+                if is_running; then
+                    yad --title="BlissOScera - Restore Backup" \
+                        --error --text="Shut down BlissOScera before restoring a backup."
+                    continue
+                fi
+
+                yad --title="Confirm Disk Restore" --question --width=540 \
+                    --text="<b>Restore this BlissOS disk?</b>\n\n$(basename "$SELECTED")\n\nThe current disk will first be preserved as a pre-restore backup." \
+                    --button="Cancel:1" --button="Restore:0"
+                [ "$?" -eq 0 ] || continue
+
+                OUT="$("$BACKUP_TOOL" restore "$SELECTED" 2>&1)"
+                RC=$?
+                if [ "$RC" -eq 0 ]; then
+                    yad --title="BlissOScera - Restore Complete" --info \
+                        --width=560 --text="$OUT"
+                else
+                    printf '%s\n' "$OUT" | yad --title="BlissOScera - Restore Failed" \
+                        --width=800 --height=450 --text-info --button="Close:0"
+                fi
+                ;;
+            3)
+                [ -n "$SELECTED" ] || continue
+                yad --title="Confirm Backup Deletion" --question --width=520 \
+                    --text="<b>Permanently delete this backup?</b>\n\n$(basename "$SELECTED")\n\nThis cannot be undone." \
+                    --button="Cancel:1" --button="Delete:0"
+                [ "$?" -eq 0 ] || continue
+                "$BACKUP_TOOL" delete "$SELECTED" >/dev/null 2>&1 &&
+                    yad --title="BlissOScera" --info --timeout=2 --no-buttons \
+                        --text="Backup deleted."
+                ;;
+        esac
+    done
+}
+
+expand_disk() {
+    if is_running; then
+        yad --title="BlissOScera - Expand Disk" --error \
+            --text="Shut down BlissOScera before expanding its disk."
+        return
+    fi
+
+    CURRENT="$(disk_virtual_gib)"
+    case "$CURRENT" in ''|Unknown) return ;; esac
+    SUGGESTED=$((CURRENT * 2))
+    [ "$SUGGESTED" -gt 2048 ] && SUGGESTED=2048
+
+    RESULT="$(
+        yad --title="BlissOScera - Expand Disk" --center --width=500 \
+            --form --separator="|" \
+            --text="Current virtual disk size: <b>${CURRENT} GiB</b>\n\nChoose the new total disk size. Disk shrinking is disabled." \
+            --field="New total size (GiB):NUM" "${SUGGESTED}!$((CURRENT + 1))..2048!1!0" \
+            --button="Cancel:1" --button="Continue:0"
+    )"
+    [ "$?" -eq 0 ] || return
+
+    TARGET="${RESULT%%|*}"
+    TARGET="${TARGET%%.*}"
+    case "$TARGET" in ''|*[!0-9]*) return ;; esac
+    [ "$TARGET" -gt "$CURRENT" ] || return
+
+    yad --title="Confirm Disk Expansion" --question --width=540 \
+        --text="<b>Expand BlissOScera from ${CURRENT} GiB to ${TARGET} GiB?</b>\n\nThe current qcow2 will be preserved as a timestamped backup.\n\nDo not power off Batocera during this operation." \
+        --button="Cancel:1" --button="Expand:0"
+    [ "$?" -eq 0 ] || return
+
+    STAMP="$(date +%Y%m%d-%H%M%S)"
+    EXPAND_LOG="$LOGDIR/disk-expand-$STAMP.log"
+    "$EXPANDER" "$TARGET" > "$EXPAND_LOG" 2>&1 &
+    EPID=$!
+
+    (
+        while kill -0 "$EPID" 2>/dev/null; do
+            echo "# Expanding BlissOScera disk to ${TARGET} GiB..."
+            sleep 1
+        done
+    ) | yad --title="BlissOScera - Expanding Disk" \
+        --width=520 --progress --pulsate --auto-close --no-buttons \
+        --text="Storage expansion is running.\nDo not shut down Batocera."
+
+    wait "$EPID"
+    RC=$?
+
+    if [ "$RC" -eq 0 ]; then
+        yad --title="BlissOScera - Disk Expansion Complete" --info \
+            --width=500 \
+            --text="<b>Expansion completed successfully.</b>\n\nNew virtual size: $(disk_virtual_gib) GiB"
+    else
+        tail -80 "$EXPAND_LOG" | yad --title="BlissOScera - Expansion Failed" \
+            --width=800 --height=500 --text-info --button="Close:0"
+    fi
+}
+
+storage_menu() {
+    while true; do
+        CURRENT="$(disk_virtual_gib)"
+        ALLOC="$(du -h "$DISK" 2>/dev/null | awk '{print $1}')"
+        HOST_FREE="$(df -h /userdata | awk 'NR==2 {print $4}')"
+
+        CHOICE="$(
+            yad --title="BlissOScera - Storage Management" \
+                --center --width=740 --height=420 \
+                --text="<big><b>Storage Management</b></big>\n\nVirtual capacity: <b>${CURRENT} GiB</b>\nActual host usage: <b>${ALLOC:-Unknown}</b>\nHost free space: <b>${HOST_FREE}</b>\n" \
+                --list --separator="" --print-column=1 \
+                --column="ID:HD" --column="Action" --column="Description" \
+                "1" "Expand Disk" "Increase the BlissOS virtual disk and /data filesystem" \
+                "2" "Disk Information" "View detailed qcow2 information" \
+                "3" "Disk Backups" "Restore or delete preserved disk images" \
+                "4" "Return" "Return to the main menu" \
+                --button="Select:0" --button="Back:1"
+        )"
+
+        [ "$?" -eq 0 ] || return
+        case "$CHOICE" in
+            1) expand_disk ;;
+            2) disk_info ;;
+            3) backup_menu ;;
+            4) return ;;
+        esac
+    done
+}
+
+diagnostics_dialog() {
+    [ -x "$DIAG_TOOL" ] || return
+    REPORT="$("$DIAG_TOOL" 2>/dev/null)"
+    [ -f "$REPORT" ] || return
+    cat "$REPORT" | yad --title="BlissOScera - Diagnostics" \
+        --width=950 --height=650 --text-info --button="Close:0"
+}
+
+view_log() {
+    [ -f "$LOG" ] || {
+        yad --title="BlissOScera" --info --text="No QEMU log exists yet."
+        return
+    }
+    tail -200 "$LOG" | yad --title="BlissOScera - QEMU Log" \
+        --width=900 --height=600 --text-info --button="Close:0"
+}
+
+about_dialog() {
+    VERSION="$(cat "$VERSION_FILE" 2>/dev/null || echo dev)"
+    QEMU_VERSION="$("$ROOT/bin/qemu-system-x86_64" --version 2>/dev/null | head -1)"
+    DISK_SIZE="$(disk_virtual_gib)"
+
+    ARGS=(
+        --title="About BlissOScera"
+        --center
+        --width=620
+        --info
+        --text="<big><b>BlissOScera</b></big>
+
+<b>BlissOS for Batocera</b>
+<b>Version:</b> ${VERSION}
+
+A managed BlissOS Android environment for Batocera using QEMU/KVM.
+
+<b>Runtime</b>
+${QEMU_VERSION}
+Virtual disk: ${DISK_SIZE} GiB
+
+<b>Features</b>
+• KVM hardware acceleration
+• VirGL graphics
+• VirtWifi networking
+• PipeWire audio
+• Controller passthrough
+• Controller-driven configuration UI
+• ADB access
+• Configurable RAM and CPU
+• Safe disk expansion
+• Backup and restore
+• Diagnostics
+• EmulationStation integration"
+    )
+
+    [ -f "$ICON" ] && ARGS+=(--image="$ICON")
+    yad "${ARGS[@]}"
+}
+
+launch_bliss() {
+    if is_running; then
+        yad --title="BlissOScera" --warning --text="BlissOScera is already running."
+        return
+    fi
+    "$LAUNCHER" >> "$LOG" 2>&1 &
+    sleep 2
+    if is_running; then
+        yad --title="BlissOScera" --info --timeout=2 --no-buttons \
+            --text="BlissOScera started successfully."
+    else
+        yad --title="BlissOScera" --error \
+            --text="BlissOScera did not start.\n\nCheck the QEMU log."
+    fi
+}
+
+shutdown_bliss() {
+    if ! is_running; then
+        yad --title="BlissOScera" --info --text="BlissOScera is not currently running."
+        return
+    fi
+    "$POWEROFF"
+    yad --title="BlissOScera" --info --timeout=2 --no-buttons \
+        --text="Shutdown request sent."
+}
+
+start_gui_controller
+
+while true; do
+    load_config
+    is_running && VM_STATUS="RUNNING" || VM_STATUS="STOPPED"
+    DISK_GIB="$(disk_virtual_gib)"
+    APP_VERSION="$(cat "$VERSION_FILE" 2>/dev/null || echo dev)"
+
+    CHOICE="$(
+        yad --title="BlissOScera Configuration Manager" \
+            --center --width=760 --height=540 \
+            --text="<big><b>BlissOScera</b></big>  v${APP_VERSION}\n<small>BlissOS for Batocera</small>\n\nVM Status: <b>${VM_STATUS}</b>\nRAM: ${RAM_MB} MB     CPU Cores: ${CPU_CORES}     Disk: ${DISK_GIB} GiB\n" \
+            --list --separator="" --print-column=1 \
+            --column="ID:HD" --column="Action" --column="Description" \
+            "1" "VM Settings" "RAM, CPU, fullscreen, audio, ADB and controller" \
+            "2" "Launch BlissOScera" "Start the Android virtual machine" \
+            "3" "Shut Down BlissOScera" "Send a graceful ACPI shutdown request" \
+            "4" "Storage Management" "Disk expansion, information and backups" \
+            "5" "Diagnostics" "Generate a system and VM diagnostic report" \
+            "6" "View QEMU Log" "View recent QEMU launcher output" \
+            "7" "About BlissOScera" "Version, capabilities and project information" \
+            "8" "Exit" "Close the Configuration Manager" \
+            --button="Select:0" --button="Close:1"
+    )"
+
+    [ "$?" -eq 0 ] || exit 0
+
+    case "$CHOICE" in
+        1) settings_dialog ;;
+        2) launch_bliss ;;
+        3) shutdown_bliss ;;
+        4) storage_menu ;;
+        5) diagnostics_dialog ;;
+        6) view_log ;;
+        7) about_dialog ;;
+        8) exit 0 ;;
+    esac
+done
