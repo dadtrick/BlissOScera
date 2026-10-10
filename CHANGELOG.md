@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1
+
+- Fix embedded shutdown Python and require successful QMP acknowledgement.
+- GUI reports shutdown failures instead of claiming success.
+- Installer fails on incomplete packages or failed copies, rejects conflicting shortcuts, and checks runtime executability.
+- Source exports and installs retain AI attribution; exports include tests and the build manifest without private settings/runtime files.
+- Add shutdown and packaging regressions and automated source release builds.
+- Prior 0.2.0 diagnostics and guest checks were verified on dadtrick's Batocera system; 0.2.1 shutdown is validated with a fake QMP transport, pending a hardware recheck.
+
 ## 0.2.0
 
 ### Rename and packaging
@@ -39,3 +48,4 @@
 ## 0.1.0
 
 Initial working Android-on-Batocera prototype.
+

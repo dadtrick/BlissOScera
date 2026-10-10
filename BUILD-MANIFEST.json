@@ -1,6 +1,6 @@
 {
   "name": "BlissOScera",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "tagline": "BlissOS for Batocera",
   "source_only": true,
   "runtime_included": false,

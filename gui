@@ -410,9 +410,14 @@ shutdown_bliss() {
         yad --title="BlissOScera" --info --text="BlissOScera is not currently running."
         return
     fi
-    "$POWEROFF"
-    yad --title="BlissOScera" --info --timeout=2 --no-buttons \
-        --text="Shutdown request sent."
+    local output
+    if output="$("$POWEROFF" 2>&1)"; then
+        yad --title="BlissOScera" --info --timeout=2 --no-buttons \
+            --text="Shutdown request sent."
+    else
+        yad --title="BlissOScera" --error --width=560 \
+            --text="$output"
+    fi
 }
 
 start_gui_controller
@@ -453,4 +458,5 @@ while true; do
         8) exit 0 ;;
     esac
 done
+
 

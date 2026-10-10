@@ -7,33 +7,58 @@ ROOT="$(cd "$(dirname "$0")" && pwd -P)"
 QMP="$ROOT/run/bliss-qmp.sock"
 
 [ -S "$QMP" ] || {
-echo "BlissOScera does not appear to be running."
-exit 1
+    echo "BlissOScera does not appear to be running."
+    exit 1
 }
 
 python3 - "$QMP" <<'PY'
-import json, socket, sys, time
+import json
+import socket
+import sys
 
-path = sys.argv[1]
-s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-s.settimeout(3)
-s.connect(path)
 
-def recv_line():
-data = b""
-while not data.endswith(b"\n"):
-    chunk = s.recv(4096)
-    if not chunk:
-        break
-    data += chunk
-return data
+def receive_message(stream):
+    line = stream.readline()
+    if not line:
+        raise RuntimeError("QMP connection closed before acknowledging shutdown.")
+    message = json.loads(line)
+    if not isinstance(message, dict):
+        raise RuntimeError("Invalid QMP response.")
+    return message
 
-recv_line()
-s.sendall(b'{"execute":"qmp_capabilities"}\r\n')
-time.sleep(0.1)
-recv_line()
-s.sendall(b'{"execute":"system_powerdown"}\r\n')
-s.close()
+
+def execute_command(connection, stream, command):
+    request = {"execute": command, "id": command}
+    connection.sendall(json.dumps(request).encode("utf-8") + b"\r\n")
+    while True:
+        response = receive_message(stream)
+        # QMP can interleave asynchronous events with command responses.
+        if response.get("id") != command:
+            continue
+        if "error" in response:
+            error = response["error"]
+            description = error.get("desc", str(error)) if isinstance(error, dict) else str(error)
+            raise RuntimeError(f"{command}: {description}")
+        if "return" not in response:
+            raise RuntimeError(f"Invalid response to {command}.")
+        return
+
+
+try:
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
+        connection.settimeout(3)
+        connection.connect(sys.argv[1])
+        # A buffered reader preserves additional messages received together.
+        with connection.makefile("r", encoding="utf-8") as stream:
+            if "QMP" not in receive_message(stream):
+                raise RuntimeError("QMP greeting is missing.")
+            execute_command(connection, stream, "qmp_capabilities")
+            execute_command(connection, stream, "system_powerdown")
+except (OSError, RuntimeError, ValueError) as error:
+    print(f"BlissOScera shutdown failed: {error}", file=sys.stderr)
+    sys.exit(1)
+
 print("Shutdown request sent to BlissOScera.")
 PY
+
 
