@@ -7,8 +7,6 @@ QEMU/KVM. It turns a working BlissOS VM into a controller-friendly Batocera
 experience with launch, configuration, storage management, backup/restore,
 diagnostics, ADB access, audio, networking and controller passthrough.
 
-![BlissOScera branding](assets/logo-primary.png)
-
 ## Current development release
 
 **Version:** 0.2.0
@@ -92,7 +90,7 @@ BlissOScera/
 
 ## Branding
 
-The approved BlissOScera visual suite is included in `assets/`.
+The approved BlissOScera visual suite is included in the v0.2.0 distribution package. Binary artwork can also be added to the repository under `assets/`.
 
 **Tagline:** `PLAY MORE. MANAGE LESS.`
 
