@@ -184,7 +184,7 @@ class ShutdownTests(unittest.TestCase):
 
     def test_gui_reports_failed_shutdown_without_success_dialog(self):
         for directory in ("logs", "config", "bin", "tools", "disks"):
-            (self.root / directory).mkdir()
+            (self.root / directory).mkdir(exist_ok=True)
         shutil.copyfile(SOURCE / "gui", self.root / "gui")
         commands = self.base / "mock-bin"
         commands.mkdir()
