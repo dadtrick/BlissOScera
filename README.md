@@ -20,7 +20,7 @@ See [AI_DISCLOSURE.md](AI_DISCLOSURE.md) for attribution and validation limits.
 
 ## Current development release
 
-**Version:** 0.2.0
+**Version:** 0.2.1
 
 Reported development baseline (one system; not independently reproduced in this review):
 
@@ -46,6 +46,8 @@ regression tests and GitHub CI also pass. Existing installations using the old
 scripts need updating.
 
 See [the test report](docs/TESTING-v0.2.0.md) for evidence and limits.
+
+The v0.2.1 patch fixes shutdown requests and GUI error reporting, tightens installer checks, and includes the AI disclosure and regression tests in source exports. Its automated tests pass; the shutdown change still needs a test on the actual Batocera guest.
 
 ## Quick launch
 
@@ -131,3 +133,4 @@ reproducible before a general-public release.
 This repository is public, but an open-source license has not yet been selected.
 Public visibility alone does not grant open-source reuse rights. See
 [docs/LICENSE-TODO.md](docs/LICENSE-TODO.md).
+

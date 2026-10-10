@@ -1,7 +1,7 @@
 #!/bin/bash
 # Developed with ChatGPT / Codex AI assistance, directed by dadtrick.
 # See AI_DISCLOSURE.md at the repository root for attribution and test limits.
-set -u
+set -eu
 
 SRC="$(cd "$(dirname "$0")" && pwd -P)"
 DEST="/userdata/system/blissoscera"
@@ -16,19 +16,35 @@ exit 1
 [ "$(id -u)" -eq 0 ] || fail "Run this installer as root on Batocera."
 [ -d /userdata ] || fail "This does not appear to be a Batocera system."
 
+for FILE in start stop gui VERSION AI_DISCLOSURE.md config/settings.conf.example \
+            tools/diagnostics.sh tools/backups.sh tools/expand-disk.sh \
+            tools/gui-controller.sh tools/gui-controller.py tools/loop.py; do
+    [ -f "$SRC/$FILE" ] || fail "Source package is incomplete: $SRC/$FILE"
+done
+
+if [ -L "$SHORT" ]; then
+    [ "$(readlink -f "$SHORT")" = "$DEST" ] || fail "$SHORT points to another installation."
+elif [ -e "$SHORT" ]; then
+    fail "$SHORT exists and is not the expected installation shortcut."
+fi
+
 echo "Installing BlissOScera source components..."
 
 mkdir -p \
 "$DEST/config" "$DEST/tools" "$DEST/logs" "$DEST/run" "$DEST/tmp" \
 "$DEST/docs" "$DEST/assets" "$PORTS"
 
-for FILE in start stop gui VERSION README.md CHANGELOG.md NOTICE.md; do
-[ -f "$SRC/$FILE" ] && cp -f "$SRC/$FILE" "$DEST/$FILE"
+for FILE in start stop gui VERSION README.md AI_DISCLOSURE.md CHANGELOG.md NOTICE.md BUILD-MANIFEST.json; do
+    [ -f "$SRC/$FILE" ] || continue
+    cp -f "$SRC/$FILE" "$DEST/$FILE"
 done
 
-cp -f "$SRC"/tools/* "$DEST/tools/" 2>/dev/null || true
-cp -f "$SRC"/docs/* "$DEST/docs/" 2>/dev/null || true
-cp -f "$SRC"/assets/* "$DEST/assets/" 2>/dev/null || true
+for DIR in tools docs assets; do
+    for FILE in "$SRC/$DIR"/*; do
+        [ -f "$FILE" ] || continue
+        cp -f "$FILE" "$DEST/$DIR/"
+    done
+done
 
 if [ ! -f "$DEST/config/settings.conf" ]; then
 cp "$SRC/config/settings.conf.example" "$DEST/config/settings.conf"
@@ -66,10 +82,12 @@ for FILE in \
 "$DEST/firmware/OVMF_VARS.fd" \
 "$DEST/disks/bliss-system.qcow2"
 do
-if [ ! -e "$FILE" ]; then
+case "$FILE" in
+    "$DEST/bin/"*) [ -x "$FILE" ] && continue ;;
+    *) [ -f "$FILE" ] && continue ;;
+esac
     echo "Runtime component not present: $FILE"
     MISSING=1
-fi
 done
 
 echo
@@ -81,4 +99,5 @@ else
 echo "The public source package intentionally does not bundle the QEMU/BlissOS runtime."
 echo "See docs/INSTALL.md."
 fi
+
 
