@@ -47,7 +47,7 @@ scripts need updating.
 
 See [the test report](docs/TESTING-v0.2.0.md) for evidence and limits.
 
-The v0.2.1 patch fixes shutdown requests and GUI error reporting, tightens installer checks, and includes the AI disclosure and regression tests in source exports. Its automated tests pass; the shutdown change still needs a test on the actual Batocera guest.
+The v0.2.1 patch fixes shutdown requests and GUI error reporting, tightens installer checks, and includes the AI disclosure and regression tests in source exports. Its automated tests pass. Following the release, dadtrick reported that the requested shutdown recheck worked on their existing Batocera guest. No new shutdown log or installed commit identifier was supplied for that recheck.
 
 ## Quick launch
 

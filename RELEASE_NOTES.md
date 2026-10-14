@@ -5,7 +5,7 @@
 - Fail installation on incomplete source packages or copy errors; reject conflicting shortcut paths and avoid calling non-executable QEMU binaries ready.
 - Preserve AI attribution in installed files and source exports; include tests and the build manifest, excluding runtime files and local settings.
 
-Validation: 16 automated tests pass, including alias detection, fake QMP shutdown and errors, and isolated source-export/installer tests. Python and shell checks pass. Prior v0.2.0 hardware reports confirmed VM detection, ADB access to Android 13, and guest disk capacity; dadtrick reported controller use and YouTube playback with audio. The new shutdown implementation still needs a hardware recheck after upgrading.
+Validation: 16 automated tests pass, including alias detection, fake QMP shutdown and errors, and isolated source-export/installer tests. Python and shell checks pass. Prior v0.2.0 hardware reports confirmed VM detection, ADB access to Android 13, and guest disk capacity; dadtrick reported controller use and YouTube playback with audio. Following the v0.2.1 release, dadtrick reported that the requested shutdown recheck worked on their existing system. This is a maintainer-reported functional result; no new shutdown log or installed commit identifier was supplied.
 
 This is a source-only development patch for an existing prepared runtime. It excludes BlissOS disks, QEMU, firmware, and ADB. Fresh runtime setup is not automated, and an open-source license has not yet been selected. No broader hardware support or complete correctness is claimed.
 

@@ -1,6 +1,14 @@
-# BlissOScera 0.2.0: dadtrick's system test
+# BlissOScera: dadtrick's system tests
 
-## Current result
+## Patch shutdown recheck
+
+After the v0.2.1 release, dadtrick reported that the requested shutdown recheck
+worked on their existing system. This closes the previously pending hardware
+smoke check as a maintainer-reported functional result. No new shutdown log or
+installed Git commit identifier was supplied. It does not establish every
+shutdown error case or GUI entry point.
+
+## Diagnostic result
 
 The diagnostic report collected **October 10, 2026 at 9:04 AM MDT** reports
 **VM Status: RUNNING**, a local ADB endpoint in **device** state, and successful
@@ -71,7 +79,7 @@ not exercised on the real guest disk in these reports.
 
 These results cover dadtrick's existing installation on one system. They do not
 verify a fresh runtime installation, disk expansion, backup/restore, all GUI
-actions, graceful shutdown, GPU performance, or other hardware. The previously
+actions, every shutdown scenario, GPU performance, or other hardware. The previously
 documented storage migration remains a reported development result; the reports
 confirm current capacity, not the migration procedure.
 
