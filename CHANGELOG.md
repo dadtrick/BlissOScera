@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Use consistent shell indentation, descriptive variables, and comments explaining QEMU/Batocera constraints.
+- Keep launch arguments and existing commands compatible; remove duplicated shortcut/network argument code.
+- Add contributor guidelines, editor/LF conventions, and documented integration contracts.
+- Check release metadata and package builds on ordinary pull requests.
+- License original integration code under MIT, with AI attribution and third-party notices preserved.
+
 ## 0.2.1
 
 - Fix embedded shutdown Python and require successful QMP acknowledgement.
@@ -48,4 +56,5 @@
 ## 0.1.0
 
 Initial working Android-on-Batocera prototype.
+
 

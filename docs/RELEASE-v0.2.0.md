@@ -65,4 +65,5 @@ The runtime acquisition/bootstrap process is still a development milestone, so t
 
 ## License
 
-No open-source license has been selected yet.
+No open-source license was selected for this original v0.2.0 package. The current source now includes the [MIT license](../LICENSE) for original integration code; this historical release note does not change the contents of the old archive.
+

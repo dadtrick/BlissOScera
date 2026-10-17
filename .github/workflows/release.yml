@@ -2,7 +2,6 @@ name: Release
 
 on:
   pull_request:
-    paths: [VERSION, .github/workflows/release.yml]
   push:
     branches: [main]
     paths: [VERSION]
@@ -53,4 +52,5 @@ jobs:
             --title "BlissOScera v$version — development source release" --notes-file RELEASE_NOTES.md \
             "dist/BlissOScera-v$version-source.zip" \
             "dist/BlissOScera-v$version-source.zip.sha256"
+
 

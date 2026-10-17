@@ -2,27 +2,24 @@
 
 **BlissOS for Batocera**
 
-BlissOScera is a managed BlissOS Android environment for Batocera built around
-QEMU/KVM. It turns a working BlissOS VM into a controller-friendly Batocera
-experience with launch, configuration, storage management, backup/restore,
-diagnostics, ADB access, audio, networking and controller passthrough.
+BlissOScera adds launch, configuration, and maintenance tools for a BlissOS
+virtual machine on Batocera. It uses QEMU/KVM, YAD, and EmulationStation Ports.
+The source package requires an existing QEMU runtime and BlissOS installation;
+see [installation](docs/INSTALL.md) before downloading it.
 
 ## AI development disclosure
 
-This project was developed with **ChatGPT / Codex, OpenAI's AI tools**, for
-software design, code generation, debugging, and documentation.
-**dadtrick** supplied the original need and idea, directed the project, invested
-the time, and performed hands-on testing. The code is presented openly as
-AI-developed work; the repository owner's name does not mean every line was
-written by hand.
+Developed by dadtrick using **ChatGPT / Codex (OpenAI AI tools)** for software
+design, generated code, debugging, and documentation. dadtrick provided the
+idea, requirements, project direction, and hands-on testing.
 
-See [AI_DISCLOSURE.md](AI_DISCLOSURE.md) for attribution and validation limits.
+See [AI_DISCLOSURE.md](AI_DISCLOSURE.md) for attribution and test limits.
 
 ## Current development release
 
 **Version:** 0.2.1
 
-Reported development baseline (one system; not independently reproduced in this review):
+Development baseline: one Batocera system with the following components:
 
 - Batocera 43.1 x86_64
 - QEMU 9.1.0 portable runtime
@@ -33,21 +30,23 @@ Reported development baseline (one system; not independently reproduced in this 
 - VirtWifi networking
 - VirtIO input-host controller passthrough
 
-### Hands-on test evidence
+### Tested behavior
 
-Diagnostics supplied by dadtrick confirm the v0.2.0 installation on Batocera
-43.1 / QEMU 9.1.0, a detected GameSir controller, and a 128 GiB virtual disk.
-dadtrick reports successful controller use and YouTube video playback with audio.
-The October 10 recheck reports **VM Status: RUNNING**, working ADB access to
-**Android 13**, a roughly **125 GiB** guest `/data` filesystem, and an Intel HDA
-audio device. Diagnostics now reports the physical `/blissoscera` disk path,
-consistent with the fix for the earlier false `STOPPED` label. Four isolated
-regression tests and GitHub CI also pass. Existing installations using the old
-scripts need updating.
+On dadtrick's system, diagnostics confirmed a running VM, ADB access to Android
+13, and a 128 GiB virtual disk. dadtrick reported working controller input,
+YouTube playback with audio, and a successful shutdown recheck after v0.2.1.
+See [the test record](docs/TESTING-v0.2.0.md) for versions, evidence, and limits.
+These results do not establish support for other systems or every storage action.
 
-See [the test report](docs/TESTING-v0.2.0.md) for evidence and limits.
+## How it fits into Batocera
 
-The v0.2.1 patch fixes shutdown requests and GUI error reporting, tightens installer checks, and includes the AI disclosure and regression tests in source exports. Its automated tests pass. Following the release, dadtrick reported that the requested shutdown recheck worked on their existing Batocera guest. No new shutdown log or installed commit identifier was supplied for that recheck.
+Ports entries call the same `start` and `gui` commands available in a terminal.
+QEMU owns the VM, QMP handles shutdown, and the storage tools use `qemu-img` and
+standard Linux filesystem tools. The controller helper adapts input for YAD;
+Android receives controller events through QEMU.
+
+The [architecture notes](docs/ARCHITECTURE.md) describe these boundaries and
+stable paths. See [CONTRIBUTING.md](CONTRIBUTING.md) to build or change the project.
 
 ## Quick launch
 
@@ -130,7 +129,6 @@ reproducible before a general-public release.
 
 ## License
 
-This repository is public, but an open-source license has not yet been selected.
-Public visibility alone does not grant open-source reuse rights. See
-[docs/LICENSE-TODO.md](docs/LICENSE-TODO.md).
-
+The original BlissOScera integration code is available under the [MIT license](LICENSE).
+Third-party runtimes and assets retain their own terms; see
+[the licensing notes](docs/LICENSING.md) and [NOTICE.md](NOTICE.md).
