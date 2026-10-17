@@ -17,3 +17,9 @@ This project's integration code and documentation were developed with AI
 assistance from ChatGPT / Codex (OpenAI), directed by dadtrick. See
 [AI_DISCLOSURE.md](AI_DISCLOSURE.md) for roles and validation limits. Upstream
 projects retain their own authorship and license terms.
+
+## Original project code
+
+The original BlissOScera integration code is licensed under MIT; see [LICENSE](LICENSE).
+This grant does not replace any third-party license or assign authorship of
+QEMU, BlissOS, Batocera, Android, firmware, or external assets to this project.

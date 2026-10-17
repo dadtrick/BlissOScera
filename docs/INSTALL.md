@@ -10,8 +10,7 @@ yet bootstrap the entire QEMU/BlissOS runtime from scratch.
 Copy or extract the source package on Batocera and run:
 
 ```bash
-chmod +x install.sh
-./install.sh
+bash install.sh
 ```
 
 The installer uses:
@@ -46,6 +45,11 @@ and creates the short convenience path:
 
 The tested portable QEMU development runtime is QEMU 9.1.0.
 
+An upgrade copies the management scripts and keeps the existing runtime,
+`disks/bliss-system.qcow2`, and `config/settings.conf`. Shut Android down before
+upgrading. Run the installer from the extracted source package, not from the
+installed application directory.
+
 ## BlissOS networking
 
 The tested guest installation uses the kernel parameter:
@@ -73,3 +77,4 @@ Configuration:
 Before general release, the project should gain a reproducible runtime setup
 flow that acquires compatible QEMU/OVMF components from appropriate upstream
 sources and guides the user through creating/installing the BlissOS disk.
+

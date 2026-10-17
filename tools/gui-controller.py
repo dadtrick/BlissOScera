@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # Developed with ChatGPT / Codex AI assistance, directed by dadtrick.
 # See AI_DISCLOSURE.md at the repository root for attribution and test limits.
+"""Translate controller events into X11 keyboard input for YAD dialogs."""
+
 import ctypes
 import glob
 import os
@@ -42,8 +44,8 @@ signal.signal(signal.SIGINT, stop_handler)
 
 def find_controller():
     if os.path.isfile(CONFIG):
-        with open(CONFIG, encoding='utf-8', errors='replace') as f:
-            text = f.read()
+        with open(CONFIG, encoding='utf-8', errors='replace') as config_file:
+            text = config_file.read()
         match = re.search(
             r'^CONTROLLER_EVDEV=["\']?([^"\']*)["\']?$',
             text,
@@ -56,8 +58,8 @@ def find_controller():
     return choices[0] if choices else None
 
 
-device = find_controller()
-if not device or not os.path.exists(device):
+controller_device = find_controller()
+if not controller_device or not os.path.exists(controller_device):
     print('No usable controller event device was found.', flush=True)
     sys.exit(0)
 
@@ -66,8 +68,8 @@ os.environ.setdefault('DISPLAY', ':0.0')
 try:
     x11 = ctypes.CDLL('libX11.so.6')
     xtst = ctypes.CDLL('libXtst.so.6')
-except OSError as e:
-    print(f'Could not load X11/XTest: {e}', flush=True)
+except OSError as error:
+    print(f'Could not load X11/XTest: {error}', flush=True)
     sys.exit(1)
 
 x11.XOpenDisplay.argtypes = [ctypes.c_char_p]
@@ -141,10 +143,10 @@ def update_hat(axis, value):
     global hat_x, hat_y
 
     if axis == ABS_HAT0X:
-        old = hat_x
-        if old == -1:
+        previous_value = hat_x
+        if previous_value == -1:
             send_key('left', False)
-        elif old == 1:
+        elif previous_value == 1:
             send_key('right', False)
         hat_x = value
         if value == -1:
@@ -153,10 +155,10 @@ def update_hat(axis, value):
             send_key('right', True)
 
     elif axis == ABS_HAT0Y:
-        old = hat_y
-        if old == -1:
+        previous_value = hat_y
+        if previous_value == -1:
             send_key('up', False)
-        elif old == 1:
+        elif previous_value == 1:
             send_key('down', False)
         hat_y = value
         if value == -1:
@@ -166,17 +168,17 @@ def update_hat(axis, value):
 
 
 print('Starting BlissOScera GUI controller support.', flush=True)
-print(f'Controller: {device}', flush=True)
+print(f'Controller: {controller_device}', flush=True)
 
-fd = None
+controller_fd = None
 try:
-    fd = os.open(device, os.O_RDONLY | os.O_NONBLOCK)
+    controller_fd = os.open(controller_device, os.O_RDONLY | os.O_NONBLOCK)
     while running:
-        readable, _, _ = select.select([fd], [], [], 0.25)
+        readable, _, _ = select.select([controller_fd], [], [], 0.25)
         if not readable:
             continue
         try:
-            data = os.read(fd, EVENT_SIZE)
+            data = os.read(controller_fd, EVENT_SIZE)
         except BlockingIOError:
             continue
         if len(data) != EVENT_SIZE:
@@ -199,9 +201,9 @@ finally:
             send_key(name, False)
         except Exception:
             pass
-    if fd is not None:
+    if controller_fd is not None:
         try:
-            os.close(fd)
+            os.close(controller_fd)
         except OSError:
             pass
     x11.XFlush(display)

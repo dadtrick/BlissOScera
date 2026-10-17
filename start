@@ -3,12 +3,13 @@
 # See AI_DISCLOSURE.md at the repository root for attribution and test limits.
 set -u
 
+# Resolve the /bliss shortcut so process checks use the same disk path as QEMU.
 ROOT="$(cd "$(dirname "$0")" && pwd -P)"
 CONFIG="$ROOT/config/settings.conf"
 QEMU="$ROOT/bin/qemu-system-x86_64"
 DISK="$ROOT/disks/bliss-system.qcow2"
-CODE="$ROOT/firmware/OVMF_CODE.fd"
-VARS="$ROOT/firmware/OVMF_VARS.fd"
+OVMF_CODE="$ROOT/firmware/OVMF_CODE.fd"
+OVMF_VARS="$ROOT/firmware/OVMF_VARS.fd"
 QMP="$ROOT/run/bliss-qmp.sock"
 LOG="$ROOT/logs/bliss-qemu.log"
 
@@ -27,18 +28,22 @@ FULLSCREEN=0
 [ -f "$CONFIG" ] && . "$CONFIG"
 
 fail() {
-echo "BlissOScera: $*" >&2
-exit 1
+    echo "BlissOScera: $*" >&2
+    exit 1
 }
 
 [ -x "$QEMU" ] || fail "QEMU runtime is missing: $QEMU"
 [ -f "$DISK" ] || fail "BlissOS disk is missing: $DISK"
-[ -f "$CODE" ] || fail "OVMF_CODE.fd is missing."
-[ -f "$VARS" ] || fail "OVMF_VARS.fd is missing."
+[ -f "$OVMF_CODE" ] || fail "OVMF_CODE.fd is missing."
+[ -f "$OVMF_VARS" ] || fail "OVMF_VARS.fd is missing."
 
 HOST_CORES="$(nproc 2>/dev/null || echo 1)"
-case "$CPU_CORES" in ''|*[!0-9]*) CPU_CORES=1 ;; esac
-case "$RAM_MB" in ''|*[!0-9]*) RAM_MB=4096 ;; esac
+case "$CPU_CORES" in
+    ''|*[!0-9]*) CPU_CORES=1 ;;
+esac
+case "$RAM_MB" in
+    ''|*[!0-9]*) RAM_MB=4096 ;;
+esac
 [ "$CPU_CORES" -lt 1 ] && CPU_CORES=1
 [ "$CPU_CORES" -gt "$HOST_CORES" ] && CPU_CORES="$HOST_CORES"
 [ "$RAM_MB" -lt 2048 ] && RAM_MB=2048
@@ -46,7 +51,7 @@ case "$RAM_MB" in ''|*[!0-9]*) RAM_MB=4096 ;; esac
 mkdir -p "$ROOT/run" "$ROOT/logs"
 
 if pgrep -af qemu-system-x86_64 2>/dev/null | grep -F "$DISK" >/dev/null; then
-fail "BlissOScera is already running."
+    fail "BlissOScera is already running."
 fi
 
 rm -f "$QMP"
@@ -54,66 +59,66 @@ rm -f "$QMP"
 # If controller passthrough is enabled but no explicit path is configured,
 # try the first persistent joystick event device.
 if [ "$ENABLE_CONTROLLER" = "1" ] && [ -z "$CONTROLLER_EVDEV" ]; then
-for C in /dev/input/by-id/*-event-joystick; do
-    [ -e "$C" ] || continue
-    CONTROLLER_EVDEV="$C"
-    break
-done
+    for controller in /dev/input/by-id/*-event-joystick; do
+        [ -e "$controller" ] || continue
+        CONTROLLER_EVDEV="$controller"
+        break
+    done
 fi
 
-ARGS=(
--nodefaults
--name "BlissOScera"
--L "$ROOT/share/qemu"
--machine q35,accel=kvm
--cpu host
--smp "$CPU_CORES"
--m "$RAM_MB"
+# Implicit QEMU devices caused VirGL crashes on the tested Batocera host.
+# Keep -nodefaults and select the runtime's packaged ROM/data directory with -L.
+QEMU_ARGS=(
+    -nodefaults
+    -name "BlissOScera"
+    -L "$ROOT/share/qemu"
+    -machine q35,accel=kvm
+    -cpu host
+    -smp "$CPU_CORES"
+    -m "$RAM_MB"
 
--drive "if=pflash,format=raw,readonly=on,file=$CODE"
--drive "if=pflash,format=raw,file=$VARS"
+    -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE"
+    -drive "if=pflash,format=raw,file=$OVMF_VARS"
 
--drive "if=none,id=systemdisk,format=qcow2,file=$DISK"
--device virtio-blk-pci,drive=systemdisk
+    -drive "if=none,id=systemdisk,format=qcow2,file=$DISK"
+    -device virtio-blk-pci,drive=systemdisk
 
--device virtio-vga-gl
--display sdl,gl=on
+    -device virtio-vga-gl
+    -display sdl,gl=on
 
--qmp "unix:$QMP,server=on,wait=off"
+    -qmp "unix:$QMP,server=on,wait=off"
 )
 
 if [ "$ENABLE_ADB" = "1" ]; then
-ARGS+=(
-    -netdev "user,id=net0,hostfwd=tcp::$ADB_PORT-:5555"
-    -device virtio-net-pci,netdev=net0,romfile=
-)
+    QEMU_ARGS+=(
+        -netdev "user,id=net0,hostfwd=tcp::$ADB_PORT-:5555"
+    )
 else
-ARGS+=(
-    -netdev user,id=net0
-    -device virtio-net-pci,netdev=net0,romfile=
-)
+    QEMU_ARGS+=(
+        -netdev user,id=net0
+    )
 fi
+QEMU_ARGS+=(-device virtio-net-pci,netdev=net0,romfile=)
 
 if [ "$ENABLE_AUDIO" = "1" ]; then
-ARGS+=(
-    -audiodev pipewire,id=audio0
-    -device ich9-intel-hda
-    -device hda-duplex,audiodev=audio0
-)
+    QEMU_ARGS+=(
+        -audiodev pipewire,id=audio0
+        -device ich9-intel-hda
+        -device hda-duplex,audiodev=audio0
+    )
 fi
 
 if [ "$ENABLE_CONTROLLER" = "1" ] &&
    [ -n "$CONTROLLER_EVDEV" ] &&
    [ -e "$CONTROLLER_EVDEV" ]; then
-ARGS+=(
-    -device "virtio-input-host,evdev=$CONTROLLER_EVDEV"
-)
+    QEMU_ARGS+=(
+        -device "virtio-input-host,evdev=$CONTROLLER_EVDEV"
+    )
 fi
 
-[ "$FULLSCREEN" = "1" ] && ARGS+=(-full-screen)
+[ "$FULLSCREEN" = "1" ] && QEMU_ARGS+=(-full-screen)
 
 echo "Starting BlissOScera..." >> "$LOG"
 echo "RAM=${RAM_MB}MB CPU=${CPU_CORES}" >> "$LOG"
 
-exec "$QEMU" "${ARGS[@]}" >> "$LOG" 2>&1
-
+exec "$QEMU" "${QEMU_ARGS[@]}" >> "$LOG" 2>&1

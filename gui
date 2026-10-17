@@ -5,14 +5,14 @@
 ROOT="$(cd "$(dirname "$0")" && pwd -P)"
 CONFIG="$ROOT/config/settings.conf"
 LAUNCHER="$ROOT/start"
-POWEROFF="$ROOT/stop"
+STOP_SCRIPT="$ROOT/stop"
 DISK="$ROOT/disks/bliss-system.qcow2"
 LOG="$ROOT/logs/bliss-qemu.log"
-LOGDIR="$ROOT/logs"
+LOG_DIR="$ROOT/logs"
 QEMU_IMG="$ROOT/bin/qemu-img"
 EXPANDER="$ROOT/tools/expand-disk.sh"
 BACKUP_TOOL="$ROOT/tools/backups.sh"
-DIAG_TOOL="$ROOT/tools/diagnostics.sh"
+DIAGNOSTICS_TOOL="$ROOT/tools/diagnostics.sh"
 VERSION_FILE="$ROOT/VERSION"
 ICON="$ROOT/assets/app-icon.png"
 
@@ -49,28 +49,30 @@ is_running() {
         grep -F "$DISK" >/dev/null 2>&1
 }
 
-check_value() {
+yad_checkbox_value() {
     [ "$1" = "1" ] && echo TRUE || echo FALSE
 }
 
-bool_value() {
+config_boolean_value() {
     case "$1" in TRUE|True|true|1) echo 1 ;; *) echo 0 ;; esac
 }
 
 disk_virtual_bytes() {
-    local out
-    out="$("$QEMU_IMG" info -U --output=json "$DISK" 2>/dev/null)" || return 1
-    [ -n "$out" ] || return 1
-    printf '%s' "$out" |
-        python3 -c 'import json,sys; print(int(json.load(sys.stdin)["virtual-size"]))' \
+    local image_info
+    image_info="$("$QEMU_IMG" info -U --output=json "$DISK" 2>/dev/null)" || return 1
+    [ -n "$image_info" ] || return 1
+    printf '%s' "$image_info" |
+        python3 -c 'import json, sys; print(int(json.load(sys.stdin)["virtual-size"]))' \
         2>/dev/null
 }
 
 disk_virtual_gib() {
-    local bytes
-    bytes="$(disk_virtual_bytes)" || { echo "Unknown"; return; }
-    case "$bytes" in ''|*[!0-9]*) echo "Unknown"; return ;; esac
-    echo $((bytes / 1024 / 1024 / 1024))
+    local virtual_bytes
+    virtual_bytes="$(disk_virtual_bytes)" || { echo "Unknown"; return; }
+    case "$virtual_bytes" in
+        ''|*[!0-9]*) echo "Unknown"; return ;;
+    esac
+    echo $((virtual_bytes / 1024 / 1024 / 1024))
 }
 
 GUI_CONTROLLER_PID=""
@@ -78,11 +80,11 @@ GUI_CONTROLLER_PID=""
 start_gui_controller() {
     local helper="$ROOT/tools/gui-controller.sh"
     [ -x "$helper" ] || return 0
-    mkdir -p "$LOGDIR"
+    mkdir -p "$LOG_DIR"
 
     pkill -f "$ROOT/tools/gui-controller.py.*$ROOT" 2>/dev/null || true
 
-    "$helper" "$ROOT" >> "$LOGDIR/gui-controller.log" 2>&1 &
+    "$helper" "$ROOT" >> "$LOG_DIR/gui-controller.log" 2>&1 &
     GUI_CONTROLLER_PID=$!
     sleep 0.75
 
@@ -114,10 +116,10 @@ settings_dialog() {
             --separator="|" \
             --field="RAM (MB):NUM" "${RAM_MB}!2048..${MAX_RAM_MB}!512!0" \
             --field="CPU Cores:NUM" "${CPU_CORES}!1..${HOST_CORES}!1!0" \
-            --field="Fullscreen:CHK" "$(check_value "$FULLSCREEN")" \
-            --field="ADB:CHK" "$(check_value "$ENABLE_ADB")" \
-            --field="Audio:CHK" "$(check_value "$ENABLE_AUDIO")" \
-            --field="Controller Passthrough:CHK" "$(check_value "$ENABLE_CONTROLLER")" \
+            --field="Fullscreen:CHK" "$(yad_checkbox_value "$FULLSCREEN")" \
+            --field="ADB:CHK" "$(yad_checkbox_value "$ENABLE_ADB")" \
+            --field="Audio:CHK" "$(yad_checkbox_value "$ENABLE_AUDIO")" \
+            --field="Controller Passthrough:CHK" "$(yad_checkbox_value "$ENABLE_CONTROLLER")" \
             --field="Controller event device" "$CONTROLLER_EVDEV" \
             --button="Cancel:1" \
             --button="Save:0"
@@ -141,12 +143,12 @@ settings_dialog() {
 # BlissOScera configuration
 RAM_MB=$NEW_RAM
 CPU_CORES=$NEW_CPU
-ENABLE_ADB=$(bool_value "$NEW_ADB")
+ENABLE_ADB=$(config_boolean_value "$NEW_ADB")
 ADB_PORT=$ADB_PORT
-ENABLE_AUDIO=$(bool_value "$NEW_AUDIO")
-ENABLE_CONTROLLER=$(bool_value "$NEW_CONTROLLER")
+ENABLE_AUDIO=$(config_boolean_value "$NEW_AUDIO")
+ENABLE_CONTROLLER=$(config_boolean_value "$NEW_CONTROLLER")
 CONTROLLER_EVDEV="$NEW_CONTROLLER_EVDEV"
-FULLSCREEN=$(bool_value "$NEW_FULLSCREEN")
+FULLSCREEN=$(config_boolean_value "$NEW_FULLSCREEN")
 CFG
 
     yad --title="BlissOScera" --info --width=440 \
@@ -221,13 +223,13 @@ backup_menu() {
                     --button="Cancel:1" --button="Restore:0"
                 [ "$?" -eq 0 ] || continue
 
-                OUT="$("$BACKUP_TOOL" restore "$SELECTED" 2>&1)"
-                RC=$?
-                if [ "$RC" -eq 0 ]; then
+                RESTORE_OUTPUT="$("$BACKUP_TOOL" restore "$SELECTED" 2>&1)"
+                EXIT_STATUS=$?
+                if [ "$EXIT_STATUS" -eq 0 ]; then
                     yad --title="BlissOScera - Restore Complete" --info \
-                        --width=560 --text="$OUT"
+                        --width=560 --text="$RESTORE_OUTPUT"
                 else
-                    printf '%s\n' "$OUT" | yad --title="BlissOScera - Restore Failed" \
+                    printf '%s\n' "$RESTORE_OUTPUT" | yad --title="BlissOScera - Restore Failed" \
                         --width=800 --height=450 --text-info --button="Close:0"
                 fi
                 ;;
@@ -277,12 +279,12 @@ expand_disk() {
     [ "$?" -eq 0 ] || return
 
     STAMP="$(date +%Y%m%d-%H%M%S)"
-    EXPAND_LOG="$LOGDIR/disk-expand-$STAMP.log"
+    EXPAND_LOG="$LOG_DIR/disk-expand-$STAMP.log"
     "$EXPANDER" "$TARGET" > "$EXPAND_LOG" 2>&1 &
-    EPID=$!
+    EXPAND_PID=$!
 
     (
-        while kill -0 "$EPID" 2>/dev/null; do
+        while kill -0 "$EXPAND_PID" 2>/dev/null; do
             echo "# Expanding BlissOScera disk to ${TARGET} GiB..."
             sleep 1
         done
@@ -290,10 +292,10 @@ expand_disk() {
         --width=520 --progress --pulsate --auto-close --no-buttons \
         --text="Storage expansion is running.\nDo not shut down Batocera."
 
-    wait "$EPID"
-    RC=$?
+    wait "$EXPAND_PID"
+    EXIT_STATUS=$?
 
-    if [ "$RC" -eq 0 ]; then
+    if [ "$EXIT_STATUS" -eq 0 ]; then
         yad --title="BlissOScera - Disk Expansion Complete" --info \
             --width=500 \
             --text="<b>Expansion completed successfully.</b>\n\nNew virtual size: $(disk_virtual_gib) GiB"
@@ -333,8 +335,8 @@ storage_menu() {
 }
 
 diagnostics_dialog() {
-    [ -x "$DIAG_TOOL" ] || return
-    REPORT="$("$DIAG_TOOL" 2>/dev/null)"
+    [ -x "$DIAGNOSTICS_TOOL" ] || return
+    REPORT="$("$DIAGNOSTICS_TOOL" 2>/dev/null)"
     [ -f "$REPORT" ] || return
     cat "$REPORT" | yad --title="BlissOScera - Diagnostics" \
         --width=950 --height=650 --text-info --button="Close:0"
@@ -411,7 +413,7 @@ shutdown_bliss() {
         return
     fi
     local output
-    if output="$("$POWEROFF" --shutdown 2>&1)"; then
+    if output="$("$STOP_SCRIPT" --shutdown 2>&1)"; then
         yad --title="BlissOScera" --info --text="$output"
     else
         yad --title="BlissOScera" --error --width=560 --text="$output"
@@ -424,7 +426,7 @@ power_menu_bliss() {
         return
     fi
     local output
-    if output="$("$POWEROFF" --power-menu 2>&1)"; then
+    if output="$("$STOP_SCRIPT" --power-menu 2>&1)"; then
         yad --title="BlissOScera" --info --width=540 --text="$output"
     else
         yad --title="BlissOScera" --error --width=560 --text="$output"
@@ -471,5 +473,3 @@ while true; do
         8) exit 0 ;;
     esac
 done
-
-
